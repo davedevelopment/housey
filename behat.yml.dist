@@ -1,0 +1,30 @@
+default:
+    paths:
+        features:                  "%%BEHAT_CONFIG_PATH%%/features"
+    formatter:
+        name:                      'pretty'
+        parameters:
+            decorated:              true
+            verbose:                false
+            time:                   true
+            language:               'en'
+            output_path:            null
+            multiline_arguments:    true
+            paths:                  true
+    context:
+        class: 'FeatureContext'
+        parameters:
+            database:
+                type: DBAL
+                params:
+                    username: 'root'
+                    password: 't00r'
+                    dbname:   'housey_test'
+                    host:     '127.0.0.1'
+                    driver:   'pdo_mysql'
+            cache:
+                type: Memcached
+                params:
+                    host: 127.0.0.1
+                    port: 11211
+                    

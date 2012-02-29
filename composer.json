@@ -1,0 +1,32 @@
+{
+    "name": "davedevelopment/housey",
+    "type": "library",
+    "description": "Port of A/Bingo, a split testing library",
+    "keywords": ["split testing", "A/B testing"],
+    "homepage": "http://github.com/davedevelopment/housey",
+    "license": "MIT",
+    "authors": [{
+        "name": "Dave Marshall",
+        "email": "dave.marshall@atstsolutions.co.uk",
+        "homepage": "http://davedevelopment.co.uk"
+    }],
+
+    "require": {
+        "php": ">=5.3.1"
+    },
+
+    "suggest": {
+        "behat/behat": "*",
+        "doctrine/dbal": "*"
+    },
+
+    "config": {
+        "bin-dir": "bin/"
+    },
+
+    "autoload": {
+        "psr-0": {
+            "Housey": "src/"
+        }
+    }
+}
