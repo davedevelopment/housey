@@ -253,7 +253,8 @@ class HouseyService
                     $frac1 = $cr1 * (1 - $cr1) / $n1;
                     $frac2 = $cr2 * (1 - $cr2) / $n2;
 
-                    $zscore = abs($numerator / pow($frac1 + $frac2, 0.5));
+                    $denominator = pow($frac1 + $frac2, 0.5);
+                    $zscore = $denominator !== 0 ? abs($numerator / pow($frac1 + $frac2, 0.5)) : 0;
                     $expData['significance']['zscore'] = $zscore;
                     $zscoreCheatsheet = array(
                         array(0.10, 1.29),
