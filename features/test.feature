@@ -11,8 +11,8 @@ Scenario: Test is created on first call
         | 2       |
     And I call get statistics
     Then I should see the following experiment statistics
-        | Test name | Total Participants | Total Conversions |
-        | dave123   | 1                  | 0                 | 
+        | Test name         | Total Participants | Total Conversions |
+        | dave123:dave123   | 1                  | 0                 | 
 
 Scenario: Test participation is not recorded twice
     Given the housey service has been bootstrapped
@@ -26,8 +26,8 @@ Scenario: Test participation is not recorded twice
         | 2       |
     And I call get statistics
     Then I should see the following experiment statistics
-        | Test name | Total Participants | Total Conversions |
-        | dave123   | 1                  | 0                 | 
+        | Test name       | Total Participants | Total Conversions |
+        | dave123:dave123 | 1                  | 0                 | 
 
 Scenario: Test participation is recorded for different identities
     Given the housey service has been bootstrapped
@@ -53,8 +53,8 @@ Scenario: Test participation is recorded for different identities
         | 2       |
     And I call get statistics
     Then I should see the following experiment statistics
-        | Test name | Total Participants | Total Conversions |
-        | dave123   | 3                  | 0                 | 
+        | Test name         | Total Participants | Total Conversions |
+        | dave123:dave123   | 3                  | 0                 | 
    
 Scenario: Test is linked with specific conversion
     Given the housey service has been bootstrapped
@@ -65,13 +65,32 @@ Scenario: Test is linked with specific conversion
         | 2       |
     And I call bingo with "winner"
     And I call set identity with "mnopqr"
-    And I call test with "dave123" and the following alternatives:
+    And I call test with "dave123", conversion name "winner" and the following alternatives:
         | Content |
         | 1       |
         | 2       |
     And I call get statistics
     Then I should see the following experiment statistics
-        | Test name | Total Participants | Total Conversions | Conversion Rate |
-        | dave123   | 2                  | 1                 | 0.5             |
+        | Test name        | Total Participants | Total Conversions | Conversion Rate |
+        | dave123:winner   | 2                  | 1                 | 0.5             |
    
-
+Scenario: Test can be linked with multiple conversion
+    Given the housey service has been bootstrapped
+    And I call set identity with "abcdef"
+    When I call test with "dave123", conversion names "winner,another" and the following alternatives:
+        | Content |
+        | 1       |
+        | 2       |
+    And I call bingo with "winner"
+    And I call bingo with "another"
+    And I call set identity with "mnopqr"
+    When I call test with "dave123", conversion names "winner,another" and the following alternatives:
+        | Content |
+        | 1       |
+        | 2       |
+    And I call bingo with "another"
+    And I call get statistics
+    Then I should see the following experiment statistics
+        | Test name        | Total Participants | Total Conversions | Conversion Rate |
+        | dave123:winner   | 2                  | 1                 | 0.5             |
+        | dave123:another  | 2                  | 2                 | 1               |

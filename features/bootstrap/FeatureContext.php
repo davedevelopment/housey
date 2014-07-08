@@ -133,10 +133,14 @@ class FeatureContext extends BehatContext
     }
 
     /**
-     * @When /^I call test with "([^"]*)", conversion name "([^"]*)" and the following alternatives:$/
+     * @When /^I call test with "([^"]*)", conversion name(|s) "([^"]*)" and the following alternatives:$/
      */
-    public function iCallTestWithConversionNameAndTheFollowingAlternatives($testName, $conversionName, TableNode $table)
+    public function iCallTestWithConversionNameAndTheFollowingAlternatives($testName, $multi, $conversionName, TableNode $table)
     {
+        if ($multi) {
+            $conversionName = explode(",", $conversionName);
+        }
+
         static::$service->test($testName, $this->getAlternativesFromTable($table), array(
             'conversionName' => $conversionName,
         ));

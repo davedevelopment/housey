@@ -85,22 +85,29 @@ class HouseyService
             return $shortCircuit;
         }
 
-        $exists = $this->cache->get("Housey::Experiment::Exists::$testName");
-        if (!$exists) {
-            $experiment = $this->experimentMapper->find($testName);
-            if (null === $experiment) {
-                $lockKey = "Housey::LockForCreation::$testName";
-                while(false === $this->cache->add($lockKey, true, 5)) {
-                    sleep(0.1);
-                }
+        $conversionNames = (array) $options['conversionName'];
 
-                // lock achieved, check it still doesn't exist
-                $experiment = $this->experimentMapper->find($testName);
+        foreach ($conversionNames as $conversionName) {
+            $experimentName = $testName.':'.$conversionName;
+            $exists = $this->cache->get("Housey::Experiment::Exists::$experimentName");
+            if (!$exists) {
+                $experiment = $this->experimentMapper->find($experimentName);
                 if (null === $experiment) {
-                    $experiment = $this->startExperiment($testName, $this->parseAlternatives($alternatives), $options);
-                }
+                    $lockKey = "Housey::LockForCreation::$experimentName";
+                    while(false === $this->cache->add($lockKey, true, 5)) {
+                        sleep(0.1);
+                    }
 
-                $this->cache->delete($lockKey);
+                    // lock achieved, check it still doesn't exist
+                    $experiment = $this->experimentMapper->find($experimentName);
+                    if (null === $experiment) {
+                        $experimentOptions = $options;
+                        $experimentOptions['conversionName'] = $conversionName;
+                        $experiment = $this->startExperiment($experimentName, $this->parseAlternatives($alternatives), $experimentOptions);
+                    }
+
+                    $this->cache->delete($lockKey);
+                }
             }
         }
 
@@ -112,11 +119,14 @@ class HouseyService
             $participating = array();
         }
 
-        if (!in_array($testName, $participating)) {
-            $participating[] = $testName;
-            $this->cache->set($participationKey, $participating);
-            $this->scoreParticipation($testName, $alternatives);
+        foreach ($conversionNames as $conversionName) {
+            $experimentName = $testName.':'.$conversionName;
+            if (!in_array($experimentName, $participating)) {
+                $participating[] = $experimentName;
+                $this->scoreParticipation($testName, $experimentName);
+            }
         }
+        $this->cache->set($participationKey, $participating);
 
         /**
          * This next block is copied from the start experiment method, it's a
@@ -125,16 +135,18 @@ class HouseyService
          * counted), but this pretty much ends the test as no conversions are
          * recorded...
          */
-        $conversionName = $options['conversionName'];
-        $listeners = $this->cache->get("Housey::TestsListeningToConversion::$conversionName");
+        foreach ($conversionNames as $conversionName) {
+            $experimentName = $testName.':'.$conversionName;
+            $listeners = $this->cache->get("Housey::TestsListeningToConversion::$conversionName");
 
-        if (!is_array($listeners)) {
-            $listeners = array();
-        }
+            if (!is_array($listeners)) {
+                $listeners = array();
+            }
 
-        if (!in_array($testName, $listeners)) {
-            $listeners[] = $testName;
-            $listeners = $this->cache->set("Housey::TestsListeningToConversion::$conversionName", $listeners);
+            if (!in_array($experimentName, $listeners)) {
+                $listeners[] = $experimentName;
+                $listeners = $this->cache->set("Housey::TestsListeningToConversion::$conversionName", $listeners);
+            }
         }
 
         return $choice;
@@ -149,10 +161,10 @@ class HouseyService
      * @param array $options - not currently used
      * @return void
      */
-    public function bingo($testName, array $options = null)
+    public function bingo($conversionName, array $options = null)
     {
-        if (is_array($testName)) {
-            foreach($testName as $name) {
+        if (is_array($conversionName)) {
+            foreach($conversionName as $name) {
                 $this->bingo($name, $options);
             }
             return;
@@ -161,15 +173,15 @@ class HouseyService
         /**
          * Check for conversion name
          */
-        $listeners = $this->cache->get("Housey::TestsListeningToConversion::$testName");
+        $listeners = $this->cache->get("Housey::TestsListeningToConversion::$conversionName");
         if (is_array($listeners)) {
             foreach($listeners as $name) {
-                $this->scoreConversion($name);
+                $this->scoreConversion($conversionName, $name);
             }
             return;
         }
 
-        return $this->scoreConversion($testName);
+        return $this->scoreConversion($conversionName, $conversionName.':'.$conversionName);
     }
 
     /**
@@ -342,10 +354,10 @@ class HouseyService
      * @param string $testName
      * @return bool
      */
-    protected function scoreParticipation($testName)
+    protected function scoreParticipation($testName, $experimentName)
     {
         $alternative = $this->findAlternativeForUser($testName, $this->findAlternativesForTest($testName));
-        $this->alternativeMapper->incrementParticipants($this->calculateLookup($alternative, $testName));
+        $this->alternativeMapper->incrementParticipants($this->calculateLookup($alternative, $experimentName));
     }
 
     /**
@@ -354,8 +366,9 @@ class HouseyService
      * @param string $testName
      * @return bool
      */
-    protected function scoreConversion($testName)
+    protected function scoreConversion($conversionName, $experimentName)
     {
+        $testName = str_replace(":".$conversionName, '', $experimentName);
         $participationKey = "Housey::ParticpatingTests::" . $this->getIdentity();
         $participating = $this->cache->get($participationKey);
 
@@ -363,15 +376,15 @@ class HouseyService
             $participating = array();
         }
 
-        if (in_array($testName, $participating)) {
-            $cacheKey = "Housey::Conversions::$testName::" . $this->getIdentity();
+        if (in_array($experimentName, $participating)) {
+            $cacheKey = "Housey::Conversions::$experimentName::" . $this->getIdentity();
             $scored = $this->cache->get($cacheKey);
             /**
              * No multiple conversions at the minute
              */
             if (!$scored) {
                 $alternative = $this->findAlternativeForUser($testName, $this->findAlternativesForTest($testName));
-                $this->alternativeMapper->incrementConversions($this->calculateLookup($alternative, $testName));
+                $this->alternativeMapper->incrementConversions($this->calculateLookup($alternative, $experimentName));
                 $this->cache->set($cacheKey, 1);
             }
         }
@@ -452,16 +465,19 @@ class HouseyService
 
         $this->cache->set("Housey::Experiment::Exists::$testName", true);
 
-        $conversionName = $options['conversionName'];
-        $listeners = $this->cache->get("Housey::TestsListeningToConversion::$conversionName");
+        $conversionNames = (array) $options['conversionName'];
 
-        if (!is_array($listeners)) {
-            $listeners = array();
-        }
+        foreach ($conversionNames as $conversionName) {
+            $listeners = $this->cache->get("Housey::TestsListeningToConversion::$conversionName");
 
-        if (!in_array($testName, $listeners)) {
-            $listeners[] = $testName;
-            $listeners = $this->cache->set("Housey::TestsListeningToConversion::$conversionName", $listeners);
+            if (!is_array($listeners)) {
+                $listeners = array();
+            }
+
+            if (!in_array($testName, $listeners)) {
+                $listeners[] = $testName;
+                $listeners = $this->cache->set("Housey::TestsListeningToConversion::$conversionName", $listeners);
+            }
         }
 
         return $experiment;
